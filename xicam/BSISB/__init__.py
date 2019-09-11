@@ -11,6 +11,7 @@ from xicam.core import msg
 from xicam.core.data import NonDBHeader
 from xicam.BSISB.widgets.uiwidget import MsgBox, uiSaveFile, uiGetFile
 from xicam.BSISB.widgets.mapconvertwidget import mapToH5
+from xicam.BSISB.widgets.xasimagewidget import xasImageView
 from xicam.BSISB.widgets.mapviewwidget import MapViewWidget
 from xicam.BSISB.widgets.spectraplotwidget import SpectraPlotWidget
 from xicam.BSISB.widgets.factorizationwidget import FactorizationWidget
@@ -265,6 +266,7 @@ class BSISB(GUIPlugin):
 
     def __init__(self, *args, **kwargs):
 
+        self.xas = xasImageView()
         self.mapToH5 = mapToH5()
         # Data model
         self.headermodel = QStandardItemModel()
@@ -281,7 +283,8 @@ class BSISB(GUIPlugin):
         self.imageview = TabView(self.headermodel, self.selectionmodel, MapView, 'image')
         self.imageview.currentChanged.connect(self.updateTab)
 
-        self.stages = {"MapToH5": GUILayout(self.mapToH5),
+        self.stages = {'XasView': GUILayout(self.xas),
+                       "MapToH5": GUILayout(self.mapToH5),
                        "Image View": GUILayout(self.imageview),
                        "Factor Analysis": GUILayout(self.FA_widget)}
                        # "NMF": GUILayout(self.NMF_widget)}
