@@ -8,7 +8,8 @@ from xicam.BSISB.widgets.uiwidget import MsgBox, YesNoDialog, uiGetFile, uiGetDi
 from xicam.BSISB.widgets.mapviewwidget import MapViewWidget
 from xicam.BSISB.widgets.spectraplotwidget import SpectraPlotWidget
 from lbl_ir.data_objects import ir_map
-from lbl_ir.io_tools.read_omnic import read_and_convert, read_npy
+from lbl_ir.io_tools.read_omnic import read_and_convert
+from lbl_ir.io_tools.read_numpy import read_npy
 
 class mapToH5(QSplitter):
     def __init__(self):
@@ -142,6 +143,7 @@ class mapToH5(QSplitter):
             self.spectra.wavenumbers = self.imageview.wavenumbers
             self.spectra.rc2ind = self.imageview.rc2ind
             self.spectra._data = self.irMap.data
+
 
     def updateImage(self, row, col, wavenumbers, rc2ind, dataCube):
         self.imageview.row, self.imageview.col = row, col
