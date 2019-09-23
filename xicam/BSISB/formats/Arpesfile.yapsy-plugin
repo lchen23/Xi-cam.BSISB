@@ -1,0 +1,9 @@
+[Core]
+Name = ARPES Map File Format
+Module = Arpesfile.py
+
+[Documentation]
+Author = Liang Chen
+Version = 0.1
+Website =
+Description =

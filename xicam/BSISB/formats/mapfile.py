@@ -1,11 +1,8 @@
-from xicam.plugins.DataHandlerPlugin import DataHandlerPlugin, start_doc, descriptor_doc, embedded_local_event_doc
-import functools
-from lbl_ir.data_objects.ir_map import ir_map
+from xicam.plugins.datahandlerplugin import DataHandlerPlugin, start_doc, descriptor_doc, embedded_local_event_doc
 import uuid
 import h5py
 from functools import lru_cache
 import numpy as np
-import time
 
 class MapFilePlugin(DataHandlerPlugin):
     name = 'BSISB Map File'

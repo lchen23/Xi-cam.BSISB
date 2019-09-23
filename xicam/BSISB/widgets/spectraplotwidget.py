@@ -23,7 +23,7 @@ class SpectraPlotWidget(PlotWidget):
         self.txtPosRatio = txtPosRatio
         self.positionmap = dict()
         self.wavenumbers = None
-        self._meanSpec = True  # whether current spectrum is a mean spectrum
+        self._meanSpec = False  # whether current spectrum is a mean spectrum
         self.line = InfiniteLine(movable=True)
         self.line.setPen((255, 255, 0, 200))
         self.line.setValue(linePos)

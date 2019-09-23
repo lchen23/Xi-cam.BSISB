@@ -22,8 +22,7 @@ class MapViewWidget(DynImageView):
         self.txt = TextItem('', anchor=(0, 0))
         self.addItem(self.txt)
 
-    def setEnergy(self, lineobject):
-        E = lineobject.value()
+    def setEnergy(self, E):
         # map E to index
         idx = val2ind(E, self.wavenumbers)
         self._image = self._data[idx]

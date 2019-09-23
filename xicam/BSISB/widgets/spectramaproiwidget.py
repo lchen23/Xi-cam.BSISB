@@ -7,10 +7,9 @@ import pyqtgraph as pg
 from pyqtgraph.parametertree import ParameterTree, Parameter
 import numpy as np
 from xicam.core.data import NonDBHeader
-from xicam.gui.widgets.imageviewmixins import BetterButtons
 from xicam.BSISB.widgets.uiwidget import MsgBox, uiSaveFile, uiGetFile
 from xicam.BSISB.widgets.mapviewwidget import MapViewWidget
-from xicam.BSISB.widgets.spectraplotwidget import SpectraPlotWidget
+from xicam.BSISB.widgets.spectra2Dwidget import Spectra2DImageView
 
 class MapView(QSplitter):
     sigRoiPixels = Signal(object)
@@ -28,7 +27,7 @@ class MapView(QSplitter):
         # layout set up
         self.setOrientation(Qt.Vertical)
         self.imageview = MapViewWidget()
-        self.spectra = SpectraPlotWidget()
+        self.spectra = Spectra2DImageView()
         self.spectraSplitter = QSplitter()
         self.spectraSplitter.addWidget(self.spectra)
         # self.spectraSplitter.insertWidget(1, BetterButtons())  # add a 2D spectrum window
@@ -108,6 +107,7 @@ class MapView(QSplitter):
         #constants
         self.path = os.path.expanduser('~/')
         self.pixSelection = {'ROI': None, 'Mask': None} # init pixel selection dict
+        self.isDenseImage = True
 
         # Connect signals
         self.imageview.sigShowSpectra.connect(self.spectra.showSpectra)
