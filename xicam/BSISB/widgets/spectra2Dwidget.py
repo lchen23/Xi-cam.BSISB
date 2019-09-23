@@ -34,6 +34,8 @@ class Spectra2DImageView(BetterButtons):
         self.selectedPixels = None
         self._y = None
         self.spectrumInd = 0
+        self.EInd = 0
+        self.KInd = 0
         # connect signal
         self.scene.sigMouseClicked.connect(self.getEnergy)
 
@@ -45,6 +47,7 @@ class Spectra2DImageView(BetterButtons):
             y = self.row - y - 1
             try:
                 ind = self.spec_rc2ind[(y, x)]
+                self.EInd, self.KInd = y, x
                 self.sigEnergyChanged.emit(ind)
                 # update crosshair
                 self.cross.setData([x + 0.5], [self.row - y - 0.5])
@@ -55,11 +58,6 @@ class Spectra2DImageView(BetterButtons):
                 self.legend_.setHtml(self.formatTxt(f'K = {x}', size=8)
                                      + self.formatTxt(f'E = {y}', size=8)
                                      + self.formatTxt(f'Val: {self._image[self.row - y - 1, x]: .4f}', size=8))
-                # self.txt.setHtml(
-                #     f'<div style="text-align: center"><span style="color: #FFF; font-size: 8pt">Point: #{ind}</div>\
-                #     <div style="text-align: center"><span style="color: #FFF; font-size: 8pt">X: {x}</div>\
-                #     <div style="text-align: center"><span style="color: #FFF; font-size: 8pt">Y: {y}</div>\
-                #     <div style="text-align: center"><span style="color: #FFF; font-size: 8pt">Val: {self._image[self.row - y - 1, x]: .4f}</div>')
             except Exception:
                 self.cross.hide()
 
@@ -98,6 +96,12 @@ class Spectra2DImageView(BetterButtons):
             self._y = self._data[i]
             self._image =self._y.reshape(self.row, self.col)
             self.setImage(img=self._image)
+            # update text
+            self.title.setHtml(self.formatTxt(f'Spectrum #{self.spectrumInd}'))
+            self.title.setPos(self.col // 4, -3)
+            self.legend_.setHtml(self.formatTxt(f'K = {self.KInd}', size=8)
+                                 + self.formatTxt(f'E = {self.EInd}', size=8)
+                                 + self.formatTxt(f'Val: {self._image[self.row - self.EInd - 1, self.KInd]: .4f}', size=8))
 
     def getSelectedPixels(self, selectedPixels):
         self.selectedPixels = selectedPixels
