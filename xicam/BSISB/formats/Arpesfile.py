@@ -89,7 +89,7 @@ class ArpesFilePlugin(DataHandlerPlugin):
 
         for i in range(n):
             yield embedded_local_event_doc(descriptor_uid, 'spectra', cls, (path,), resource_kwargs={'i': i},
-                  metadata={'wavenumbers': wavenumbers, 'rc_index': img_rc2ind, 'index_rc': img_ind2rc,
+                  metadata={'wavenumbers': wavenumbers, 'rc_index': img_rc2ind, 'index_rc': img_ind2rc, 'imgShape': imgShape,
                             'spec_rc_index': spec_rc2ind, 'spec_index_rc': spec_ind2rc, 'specShape': specShape})
 
     @classmethod

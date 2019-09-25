@@ -3,19 +3,14 @@ from xicam.core import msg
 from xicam.core.data import NonDBHeader
 import numpy as np
 from qtpy.QtCore import Signal
-from xicam.gui.widgets.imageviewmixins import BetterButtons
+from xicam.BSISB.widgets.imshowwidget import SlimImageView
 
 
-
-class Spectra2DImageView(BetterButtons):
+class Spectra2DImageView(SlimImageView):
     sigEnergyChanged = Signal(object)
 
     def __init__(self, invertY=True, *args, **kwargs):
-        super(Spectra2DImageView, self).__init__(*args, **kwargs)
-
-        self.setPredefinedGradient("viridis")
-        self.view.invertY(invertY)
-        self.imageItem.setOpts(axisOrder="row-major")
+        super(Spectra2DImageView, self).__init__(invertY=invertY, *args, **kwargs)
         # add arrow
         self.cross = PlotDataItem([0], [0], symbolBrush=(200, 0, 0), symbolPen=(200, 0, 0), symbol='+', symbolSize=16)
         self.view.addItem(self.cross)
@@ -23,8 +18,8 @@ class Spectra2DImageView(BetterButtons):
         # add txt
         self.E_txt = TextItem(html=self.formatTxt('E'))
         self.K_txt = TextItem(html=self.formatTxt('K'))
-        self.title = TextItem('')
-        self.legend_ = TextItem('')
+        self.title = TextItem()
+        self.legend_ = TextItem()
         self.addItem(self.E_txt)
         self.addItem(self.K_txt)
         self.addItem(self.title)

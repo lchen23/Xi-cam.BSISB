@@ -6,8 +6,8 @@ from xicam.core.data import NonDBHeader
 from xicam.BSISB.widgets.mapconvertwidget import mapToH5
 from xicam.BSISB.widgets.mapviewwidget import MapViewWidget
 from xicam.BSISB.widgets.spectramaproiwidget import MapView
-from xicam.BSISB.widgets.spectra2Dwidget import Spectra2DImageView
-from xicam.BSISB.widgets.factorizationwidget import FactorizationWidget
+from xicam.BSISB.widgets.spectra2Dviewwidget import Spectra2DImageView
+from xicam.BSISB.widgets.spectra2DFAwidget import Spectra2DFAWidget
 from xicam.plugins import GUIPlugin, GUILayout
 from xicam.gui.widgets.tabview import TabView
 
@@ -30,18 +30,18 @@ class BSISB(GUIPlugin):
         # Selection model
         self.selectionmodel = QItemSelectionModel(self.headermodel)
 
-        # self.FA_widget = FactorizationWidget(self.headermodel, self.selectionmodel)
+        self.FA_widget = Spectra2DFAWidget(self.headermodel, self.selectionmodel)
 
         # update headers list when a tab window is closed
-        # self.headermodel.rowsRemoved.connect(partial(self.FA_widget.setHeader, 'spectra'))
+        self.headermodel.rowsRemoved.connect(partial(self.FA_widget.setHeader, 'spectra'))
 
         # Setup tabviews and update map selection
         self.imageview = TabView(self.headermodel, self.selectionmodel, ArpesMapView, 'image')
-        # self.imageview = ArpesMapView()
-        self.stages = {#'MapToH5': GUILayout(self.mapToH5),
-                       "Image View": GUILayout(self.imageview),}
-                       # "Factor Analysis": GUILayout(self.FA_widget)}
-                       # "NMF": GUILayout(self.NMF_widget)}
+
+        self.stages = {"Image View": GUILayout(self.imageview),
+                       "Factor Analysis": GUILayout(self.FA_widget)
+                       }
+
         super(BSISB, self).__init__(*args, **kwargs)
 
     def appendHeader(self, header: NonDBHeader, **kwargs):
@@ -71,9 +71,9 @@ class BSISB(GUIPlugin):
         currentMapView.sigAutoMaskState.connect(partial(self.appendSelection, 'autoMask'))
         currentMapView.sigSelectMaskState.connect(partial(self.appendSelection, 'select'))
 
-        # self.FA_widget.setHeader(field='spectra')
-        # for i in range(4):
-        #     self.FA_widget.roiList[i].sigRegionChangeFinished.connect(self.updateROI)
+        self.FA_widget.setHeader(field='spectra')
+        for i in range(4):
+            self.FA_widget.mapView.roiList[i].sigRegionChangeFinished.connect(self.updateROI)
 
     def appendSelection(self, sigCase, sigContent):
         # get current widget and append selectedPixels to item
@@ -82,13 +82,13 @@ class BSISB(GUIPlugin):
             self.headermodel.item(currentItemIdx).selectedPixels = sigContent
         elif sigCase == 'ROI':
             self.headermodel.item(currentItemIdx).roiState = sigContent
-            # self.FA_widget.updateRoiMask()
+            self.FA_widget.mapView.updateRoiMask()
         elif sigCase == 'autoMask':
             self.headermodel.item(currentItemIdx).maskState = sigContent
-            # self.FA_widget.updateRoiMask()
+            self.FA_widget.mapView.updateRoiMask()
         elif sigCase == 'select':
             self.headermodel.item(currentItemIdx).selectState = sigContent
-            # self.FA_widget.updateRoiMask()
+            self.FA_widget.mapView.updateRoiMask()
 
     def updateROI(self, roi):
         if self.selectionmodel.hasSelection():

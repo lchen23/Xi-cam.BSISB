@@ -9,7 +9,7 @@ import numpy as np
 from xicam.core.data import NonDBHeader
 from xicam.BSISB.widgets.uiwidget import MsgBox, uiSaveFile, uiGetFile
 from xicam.BSISB.widgets.mapviewwidget import MapViewWidget
-from xicam.BSISB.widgets.spectra2Dwidget import Spectra2DImageView
+from xicam.BSISB.widgets.spectra2Dviewwidget import Spectra2DImageView
 
 class MapView(QSplitter):
     sigRoiPixels = Signal(object)

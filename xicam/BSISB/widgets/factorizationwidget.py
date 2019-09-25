@@ -11,7 +11,6 @@ from sklearn.decomposition import PCA, NMF, FastICA
 from sklearn.preprocessing import StandardScaler, Normalizer
 import numpy as np
 import pandas as pd
-import pyqtgraph as pg
 import matplotlib.pyplot as plt
 import seaborn as sns
 from xicam.BSISB.widgets.uiwidget import MsgBox
