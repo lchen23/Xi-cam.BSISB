@@ -3,6 +3,7 @@ from xicam.core import msg
 from xicam.core.data import NonDBHeader
 import numpy as np
 from qtpy.QtCore import Signal
+from time import time
 from xicam.BSISB.widgets.imshowwidget import SlimImageView
 
 
@@ -104,13 +105,18 @@ class Spectra2DImageView(SlimImageView):
     def showMeanSpectra(self):
         self._meanSpec = True
         msg.showMessage('Start calculating mean spectrum')
+
         if self.selectedPixels is not None:
             n_spectra = len(self.selectedPixels)
             tmp = np.zeros((n_spectra, self.N_w))
             for j in range(n_spectra):  # j: jth selected pixel
+                start_time = time()
                 row_col = tuple(self.selectedPixels[j])
+                time1 = time()
                 tmp[j, :] = self._data[self.img_rc2ind[row_col]]
+                time2 = time()
             self.title.setHtml(self.formatTxt(f'ROI mean of {n_spectra} spectra'))
+
         else:
             n_spectra = len(self._data)
             tmp = np.zeros((n_spectra, self.N_w))
@@ -123,10 +129,11 @@ class Spectra2DImageView(SlimImageView):
             meanSpec = np.mean(tmp, axis=0)
         else:
             meanSpec = np.zeros_like(self.wavenumbers) + 1e-3
-
+        time3 = time()
         self._image = meanSpec.reshape(self.row, self.col)
         self.setImage(img=self._image)
         msg.showMessage('Finished calculating mean spectrum')
+        print('time1=',time1-start_time,'time2=',time2-start_time, 'time2=',time3-start_time)
 
     def formatTxt(self, txt, size=12):
         return f'<div style="text-align: center"><span style="color: #FFF; font-size: {size}pt">{txt}</div>'

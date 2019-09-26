@@ -16,9 +16,9 @@ class ArpesFilePlugin(DataHandlerPlugin):
     def __call__(self, *args, E=None, i=None):
         if E is None and i is not None:
             # return ith linearized spectra
-            row, col = self.img_ind2rc[i][0], self.img_ind2rc[i][1]
-            return np.flipud(self.im4d[row, col, :, :]).reshape(-1)
-
+            # row, col = self.img_ind2rc[i][0], self.img_ind2rc[i][1]
+            # return np.flipud(self.im4d[row, col, :, :]).reshape(-1)
+            return self.spectra[i, :]
         elif E is not None and i is None:
             # return image at 2D energy spectrum index = E
             row, col = self.spec_ind2rc[E][0], self.spec_ind2rc[E][1]
@@ -36,6 +36,7 @@ class ArpesFilePlugin(DataHandlerPlugin):
         self.path = path
         self.im4d = np.load(self.path, mmap_mode='r')
         self.imgShape, self.specShape = self.im4d.shape[:2], self.im4d.shape[2:]
+        self.spectra = self.im4d.reshape(self.imgShape[0] * self.imgShape[1], self.specShape[0] * self.specShape[1])
         self.img_ind2rc, self.img_rc2ind = getRC2Ind(self.imgShape)
         self.spec_ind2rc, self.spec_rc2ind = getRC2Ind(self.specShape)
 
