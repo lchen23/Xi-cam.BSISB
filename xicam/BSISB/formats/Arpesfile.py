@@ -37,8 +37,33 @@ class ArpesFilePlugin(DataHandlerPlugin):
         self.im4d = np.load(self.path, mmap_mode='r')
         self.imgShape, self.specShape = self.im4d.shape[:2], self.im4d.shape[2:]
         self.spectra = self.im4d.reshape(self.imgShape[0] * self.imgShape[1], self.specShape[0] * self.specShape[1])
-        self.img_ind2rc, self.img_rc2ind = getRC2Ind(self.imgShape)
-        self.spec_ind2rc, self.spec_rc2ind = getRC2Ind(self.specShape)
+        # self.img_ind2rc, self.img_rc2ind = getRC2Ind(self.imgShape)
+        # self.spec_ind2rc, self.spec_rc2ind = getRC2Ind(self.specShape)
+        self._img_ind2rc = self._img_rc2ind = self._spec_ind2rc = self._spec_rc2ind = None
+
+    @property
+    def img_ind2rc(self):
+        if not self._img_ind2rc:
+            self._img_ind2rc, self._img_rc2ind = getRC2Ind(self.imgShape)
+        return self._img_ind2rc
+
+    @property
+    def img_rc2ind(self):
+        if not self._img_rc2ind:
+            self._img_ind2rc, self._img_rc2ind = getRC2Ind(self.imgShape)
+        return self._img_rc2ind
+
+    @property
+    def spec_ind2rc(self):
+        if not self._spec_ind2rc:
+            self._spec_ind2rc, self._spec_rc2ind = getRC2Ind(self.specShape)
+        return self._spec_ind2rc
+
+    @property
+    def spec_rc2ind(self):
+        if not self._spec_rc2ind:
+            self._spec_ind2rc, self._spec_rc2ind = getRC2Ind(self.specShape)
+        return self._spec_rc2ind
 
     def parseDataFile(self, *args, **kwargs):
         return dict()
