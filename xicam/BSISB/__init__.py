@@ -3,7 +3,6 @@ from qtpy.QtCore import *
 from qtpy.QtGui import *
 from xicam.core import msg
 from xicam.core.data import NonDBHeader
-# from xicam.BSISB.widgets.mapconvertwidget import mapToH5
 from xicam.BSISB.widgets.mapviewwidget import MapViewWidget
 from xicam.BSISB.widgets.spectramaproiwidget import MapView
 from xicam.BSISB.widgets.spectra2Dviewwidget import Spectra2DImageView
@@ -22,8 +21,6 @@ class BSISB(GUIPlugin):
     name = 'ARPES'
 
     def __init__(self, *args, **kwargs):
-
-        # self.mapToH5 = mapToH5()
         # Data model
         self.headermodel = QStandardItemModel()
 

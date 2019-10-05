@@ -14,7 +14,7 @@ class MapViewWidget(SlimImageView):
     sigShowSpectra = Signal(int)
 
     def __init__(self, *args, **kwargs):
-        super(MapViewWidget, self).__init__(*args, **kwargs)
+        super(MapViewWidget, self).__init__(invertY=False, *args, **kwargs)
         # self.scene.sigMouseMoved.connect(self.showSpectra)
         self.scene.sigMouseClicked.connect(self.showSpectra)
         # add arrow
@@ -36,19 +36,19 @@ class MapViewWidget(SlimImageView):
         if self.view.sceneBoundingRect().contains(pos):  # Note, when axes are added, you must get the view with self.view.getViewBox()
             mousePoint = self.view.mapSceneToView(pos)
             x, y = int(mousePoint.x()), int(mousePoint.y())
-            y = self.row - y - 1
+            # y = self.row - y - 1
             try:
                 ind = self.rc2ind[(y,x)]
                 self.sigShowSpectra.emit(ind)
                 # print(x, y, ind, x + y * self.n_col)
                 #update crosshair
-                self.cross.setData([x + 0.5], [self.row - y - 0.5])
+                self.cross.setData([x + 0.5], [y + 0.5])
                 self.cross.show()
                 # update text
                 self.txt.setHtml(toHtml(f'Point: #{ind}', size=8)
                                  + toHtml(f'X: {x}', size=8)
                                  + toHtml(f'Y: {y}', size=8)
-                                 + toHtml(f'Val: {self._image[self.row - y -1, x]: .4f}', size=8)
+                                 + toHtml(f'Val: {self._image[y, x]: .4f}', size=8)
                                  )
             except Exception:
                 self.cross.hide()
@@ -67,7 +67,7 @@ class MapViewWidget(SlimImageView):
             data = header.meta_array(field)
             self.row = data.shape[1]
             self.col = data.shape[2]
-            self.txt.setPos(self.col, 0)
+            self.txt.setPos(self.col, self.row)
         except IndexError:
             msg.logMessage('Header object contained no frames with field ''{field}''.', msg.ERROR)
 

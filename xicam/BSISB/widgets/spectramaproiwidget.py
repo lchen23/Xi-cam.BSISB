@@ -17,7 +17,7 @@ class MapView(QSplitter):
     sigAutoMaskState = Signal(object)
     sigSelectMaskState = Signal(object)
 
-    def __init__(self, header: NonDBHeader = None, field: str = 'primary', ):
+    def __init__(self, header: NonDBHeader = None, sideLen=20):
         """
         A widget to display imageCube like dataset with ROI buttons
         :param header: Xi-cam datahandler header
@@ -98,7 +98,7 @@ class MapView(QSplitter):
         self.header = header
 
         #setup ROI item
-        sideLen = 10
+        self.sideLen = sideLen
         self.roi = pg.PolyLineROI(positions=[[0, 0], [sideLen, 0], [sideLen, sideLen], [0, sideLen]], closed=True)
         self.imageview.view.addItem(self.roi)
         self.roiInitState = self.roi.getState()

@@ -17,7 +17,7 @@ from xicam.BSISB.widgets.uiwidget import MsgBox
 
 
 class Spectra2DQuadView(QWidget):
-    def __init__(self, invertY=True):
+    def __init__(self, invertY=False):
         super(Spectra2DQuadView, self).__init__()
         self.gridlayout = QGridLayout()
         self.setLayout(self.gridlayout)
@@ -35,7 +35,7 @@ class Spectra2DQuadView(QWidget):
         getattr(self, self.quadViewDict[i]).setImage(img=img)
         # set imageTitle
         imageTitle = getattr(self, self.quadViewDict[i]).imageTitle
-        imageTitle.setPos(0, -5)
+        imageTitle.setPos(0, img.shape[0] + 5)
         if title is not None:
             imageTitle.setHtml(toHtml(title, size=8))
         else:
@@ -55,7 +55,7 @@ class Spectra2DParameters(ParameterTree):
         self.parameter = Parameter(name='params', type='group',
                                    children=[{'name': "Method",
                                               'values': ['PCA', 'NMF'],
-                                              'value': 'PCA',
+                                              'value': 'NMF',
                                               'type': 'list'},
                                              {'name': "# of Components",
                                               'value': 4,
@@ -85,7 +85,7 @@ class Spectra2DParameters(ParameterTree):
         self.setParameters(self.parameter, showTop=False)
         self.setIndentation(0)
         # constants
-        self.method = 'PCA'
+        self.method = 'NMF'
         self.field = 'spectra'
 
         self.parameter.child('Calculate').sigActivated.connect(self.calculate)
@@ -196,12 +196,13 @@ class Spectra2DParameters(ParameterTree):
         # loadings plot
         for i in range(getattr(self, self.method).components_.shape[0]):
             labels.append(self.method + str(i + 1))
-        #     plt.plot(self.wavenumbers_select, getattr(self, self.method).components_[i, :], '-',
-        #              label=labels[i])
-        # loadings_legend = plt.legend(loc='best')
-        # plt.setp(loadings_legend, draggable=True)
-        # plt.xlim([max(self.wavenumbers_select), min(self.wavenumbers_select)])
-
+            # component variance ratio plot
+            if self.method == 'PCA':
+                plt.plot(getattr(self, self.method).explained_variance_ratio_, 'o-b')
+                ax = plt.gca()
+                ax.set_ylabel('Explained variance ratio', fontsize=16)
+                ax.set_xlabel('Component number',  fontsize=16)
+                ax.set_xticks(np.arange(self.parameter['# of Components']))
         # pair plot
         groupLabel = np.zeros((self.dataRowSplit[-1], 1))
         for i in range(len(self.dataRowSplit) - 1):
@@ -236,7 +237,7 @@ class Spectra2DParameters(ParameterTree):
 
 
 class Spectra2DQuadViewROI(Spectra2DQuadView):
-    def __init__(self, headermodel, selectionmodel, invertY=True, sideLen=10):
+    def __init__(self, headermodel, selectionmodel, invertY=False, sideLen=20):
         super(Spectra2DQuadViewROI, self).__init__(invertY=invertY)
         self.headermodel = headermodel
         self.selectionmodel = selectionmodel

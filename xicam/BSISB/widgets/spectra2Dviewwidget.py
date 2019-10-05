@@ -10,7 +10,7 @@ from xicam.BSISB.widgets.imshowwidget import SlimImageView
 class Spectra2DImageView(SlimImageView):
     sigEnergyChanged = Signal(object)
 
-    def __init__(self, invertY=True, *args, **kwargs):
+    def __init__(self, invertY=False, *args, **kwargs):
         super(Spectra2DImageView, self).__init__(invertY=invertY, *args, **kwargs)
         # add arrow
         self.cross = PlotDataItem([0], [0], symbolBrush=(200, 0, 0), symbolPen=(200, 0, 0), symbol='+', symbolSize=16)
@@ -40,20 +40,20 @@ class Spectra2DImageView(SlimImageView):
         if self.view.sceneBoundingRect().contains(pos):  # Note, when axes are added, you must get the view with self.view.getViewBox()
             mousePoint = self.view.mapSceneToView(pos)
             x, y = int(mousePoint.x()), int(mousePoint.y())
-            y = self.row - y - 1
+            # y = self.row - y - 1
             try:
                 ind = self.spec_rc2ind[(y, x)]
                 self.EInd, self.KInd = y, x
                 self.sigEnergyChanged.emit(ind)
                 # update crosshair
-                self.cross.setData([x + 0.5], [self.row - y - 0.5])
+                self.cross.setData([x + 0.5], [y + 0.5])
                 self.cross.show()
                 # update text
                 self.title.setHtml(self.formatTxt(f'Spectrum #{self.spectrumInd}'))
-                self.title.setPos(self.col // 4, -3)
+                self.title.setPos(self.col // 4, self.row + 3)
                 self.legend_.setHtml(self.formatTxt(f'K = {x}', size=8)
                                      + self.formatTxt(f'E = {y}', size=8)
-                                     + self.formatTxt(f'Val: {self._image[self.row - y - 1, x]: .4f}', size=8))
+                                     + self.formatTxt(f'Val: {self._image[y, x]: .4f}', size=8))
             except Exception:
                 self.cross.hide()
 
@@ -66,10 +66,10 @@ class Spectra2DImageView(SlimImageView):
         self.N_w = len(self.wavenumbers)
         self.specShape = spectraEvent['specShape']
         self.row, self.col = self.specShape[0], self.specShape[1]
-        self.E_txt.setPos(-3, self.row // 3)
-        self.K_txt.setPos(self.col // 2, self.row)
-        self.title.setPos(self.col // 4, -3)
-        self.legend_.setPos(self.col, 0)
+        self.E_txt.setPos(-3, self.row *2 // 3)
+        self.K_txt.setPos(self.col // 2, 0)
+        self.title.setPos(self.col // 4, self.row + 3)
+        self.legend_.setPos(self.col, self.row)
         self.img_rc2ind = spectraEvent['rc_index']
         self.spec_rc2ind = spectraEvent['spec_rc_index']
         # make lazy array from document
@@ -90,14 +90,14 @@ class Spectra2DImageView(SlimImageView):
             self._meanSpec = False
             self.spectrumInd = i
             self._y = self._data[i]
-            self._image =self._y.reshape(self.row, self.col)
+            self._image = self._y.reshape(self.row, self.col)
             self.setImage(img=self._image)
             # update text
             self.title.setHtml(self.formatTxt(f'Spectrum #{self.spectrumInd}'))
-            self.title.setPos(self.col // 4, -3)
+            self.title.setPos(self.col // 4, self.row + 3)
             self.legend_.setHtml(self.formatTxt(f'K = {self.KInd}', size=8)
                                  + self.formatTxt(f'E = {self.EInd}', size=8)
-                                 + self.formatTxt(f'Val: {self._image[self.row - self.EInd - 1, self.KInd]: .4f}', size=8))
+                                 + self.formatTxt(f'Val: {self._image[self.EInd, self.KInd]: .4f}', size=8))
 
     def getSelectedPixels(self, selectedPixels):
         self.selectedPixels = selectedPixels
@@ -110,11 +110,8 @@ class Spectra2DImageView(SlimImageView):
             n_spectra = len(self.selectedPixels)
             tmp = np.zeros((n_spectra, self.N_w))
             for j in range(n_spectra):  # j: jth selected pixel
-                start_time = time()
                 row_col = tuple(self.selectedPixels[j])
-                time1 = time()
                 tmp[j, :] = self._data[self.img_rc2ind[row_col]]
-                time2 = time()
             self.title.setHtml(self.formatTxt(f'ROI mean of {n_spectra} spectra'))
 
         else:
@@ -124,7 +121,7 @@ class Spectra2DImageView(SlimImageView):
                 tmp[j, :] = self._data[j]
             self.title.setHtml(self.formatTxt(f'Total mean of {n_spectra} spectra'))
 
-        self.title.setPos(0, -3)
+        self.title.setPos(0, self.row + 3)
         if n_spectra > 0:
             meanSpec = np.mean(tmp, axis=0)
         else:
@@ -133,7 +130,6 @@ class Spectra2DImageView(SlimImageView):
         self._image = meanSpec.reshape(self.row, self.col)
         self.setImage(img=self._image)
         msg.showMessage('Finished calculating mean spectrum')
-        print('time1=',time1-start_time,'time2=',time2-start_time, 'time2=',time3-start_time)
 
     def formatTxt(self, txt, size=12):
         return f'<div style="text-align: center"><span style="color: #FFF; font-size: {size}pt">{txt}</div>'
