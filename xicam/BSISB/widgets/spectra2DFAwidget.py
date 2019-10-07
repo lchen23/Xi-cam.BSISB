@@ -192,18 +192,18 @@ class Spectra2DParameters(ParameterTree):
             msg.showMessage('Finished computing', self.method + '.')
 
     def popup_plots(self):
+        # component variance ratio plot
+        if self.method == 'PCA':
+            plt.plot(getattr(self, self.method).explained_variance_ratio_, 'o-b')
+            ax = plt.gca()
+            ax.set_ylabel('Explained variance ratio', fontsize=16)
+            ax.set_xlabel('Component number',  fontsize=16)
+            ax.set_xticks(np.arange(self.parameter['# of Components']))
+        # pair plot
         labels = []
-        # loadings plot
         for i in range(getattr(self, self.method).components_.shape[0]):
             labels.append(self.method + str(i + 1))
-            # component variance ratio plot
-            if self.method == 'PCA':
-                plt.plot(getattr(self, self.method).explained_variance_ratio_, 'o-b')
-                ax = plt.gca()
-                ax.set_ylabel('Explained variance ratio', fontsize=16)
-                ax.set_xlabel('Component number',  fontsize=16)
-                ax.set_xticks(np.arange(self.parameter['# of Components']))
-        # pair plot
+
         groupLabel = np.zeros((self.dataRowSplit[-1], 1))
         for i in range(len(self.dataRowSplit) - 1):
             groupLabel[self.dataRowSplit[i]:self.dataRowSplit[i + 1]] = int(i)
