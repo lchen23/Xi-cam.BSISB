@@ -24,7 +24,7 @@ class MapView(QSplitter):
     sigAutoMaskState = Signal(object)
     sigSelectMaskState = Signal(object)
 
-    def __init__(self, header: NonDBHeader = None, field: str = 'primary', ):
+    def __init__(self, header: NonDBHeader = None, stream: str = 'primary', field: str = 'primary'):
         super(MapView, self).__init__()
         # layout set up
         self.setOrientation(Qt.Vertical)

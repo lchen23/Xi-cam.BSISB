@@ -1,0 +1,6 @@
+[xicam.plugins.DataHandlerPlugin]
+mapfile = xicam.BSISB.formats.mapfile:MapFilePlugin
+
+[xicam.plugins.GUIPlugin]
+BSISB = xicam.BSISB:BSISB
+
