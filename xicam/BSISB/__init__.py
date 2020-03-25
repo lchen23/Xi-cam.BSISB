@@ -14,7 +14,7 @@ from xicam.BSISB.widgets.mapconvertwidget import mapToH5
 from xicam.BSISB.widgets.xasimagewidget import xasImageView
 from xicam.BSISB.widgets.mapviewwidget import MapViewWidget
 from xicam.BSISB.widgets.xasimagewidget import xasSpectraWidget
-from xicam.BSISB.widgets.factorizationwidget import FactorizationWidget
+from xicam.BSISB.widgets.xasnormalwidget import NormalizationWidget
 from xicam.plugins import GUIPlugin, GUILayout
 from xicam.gui.widgets.tabview import TabView
 
@@ -295,10 +295,7 @@ class BSISB(GUIPlugin):
         # Selection model
         self.selectionmodel = QItemSelectionModel(self.headermodel)
 
-        self.FA_widget = FactorizationWidget(self.headermodel, self.selectionmodel)
-
-        # update headers list when a tab window is closed
-        self.headermodel.rowsRemoved.connect(partial(self.FA_widget.setHeader, 'spectra'))
+        self.normalize = NormalizationWidget()
 
         # Setup tabviews and update map selection
         self.imageview = TabView(self.headermodel, self.selectionmodel, MapView, 'image')
@@ -306,7 +303,7 @@ class BSISB(GUIPlugin):
 
         self.stages = {'Xas View': GUILayout(self.xas),
                        "ROI View": GUILayout(self.imageview),
-                       "Factor Analysis": GUILayout(self.FA_widget)}
+                       "Data Process": GUILayout(self.normalize)}
                        # "NMF": GUILayout(self.NMF_widget)}
         super(BSISB, self).__init__(*args, **kwargs)
 
