@@ -301,9 +301,9 @@ class BSISB(GUIPlugin):
         self.imageview = TabView(self.headermodel, self.selectionmodel, MapView, 'image')
         self.imageview.currentChanged.connect(self.updateTab)
 
-        self.stages = {'Xas View': GUILayout(self.xas),
+        self.stages = {#'Xas View': GUILayout(self.xas),
                        "ROI View": GUILayout(self.imageview),
-                       "Data Process": GUILayout(self.normalization),
+                       "Data Process": GUILayout(self.normalization)
                        }
         super(BSISB, self).__init__(*args, **kwargs)
 

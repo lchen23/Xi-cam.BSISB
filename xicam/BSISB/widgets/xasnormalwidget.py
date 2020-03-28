@@ -1,6 +1,6 @@
 from qtpy.QtWidgets import *
 from qtpy.QtCore import Qt, QItemSelectionModel
-from qtpy.QtGui import QStandardItemModel, QStandardItem
+from qtpy.QtGui import QStandardItemModel, QStandardItem, QFont
 from pyqtgraph.parametertree import ParameterTree, Parameter
 from pyqtgraph import PlotWidget, TextItem, mkPen
 from xicam.core import msg
@@ -63,15 +63,22 @@ class NormalizationWidget(QSplitter):
         self.buttonlayout = QGridLayout()
         self.buttons.setLayout(self.buttonlayout)
         #set up buttons
+        self.fontSize = 12
+        font = QFont()
+        font.setPointSize(self.fontSize)
         self.loadBtn = QToolButton()
         self.loadBtn.setText('Load spectra')
+        self.loadBtn.setFont(font)
         self.removeBtn = QToolButton()
         self.removeBtn.setText('Remove spectrum')
+        self.removeBtn.setFont(font)
         self.normBox = QComboBox()
         self.normBox.addItems(['Raw','Normalized', 'Flattened', 'mback', 'mback + poly normalized',
          '1st derivative', 'Normalized + derivative'])
+        self.normBox.setFont(font)
         self.batchBtn = QToolButton()
         self.batchBtn.setText('Batch Process')
+        self.batchBtn.setFont(font)
         # add all buttons
         self.buttonlayout.addWidget(self.loadBtn)
         self.buttonlayout.addWidget(self.removeBtn)
@@ -105,6 +112,7 @@ class NormalizationWidget(QSplitter):
         self.specSelectModel.selectionChanged.connect(self.updateRawSpec)
         self.loadBtn.clicked.connect(self.loadData)
         self.normBox.currentIndexChanged.connect(self.updateResultSpec)
+        self.removeBtn.clicked.connect(self.removeSpec)
 
     def setHeader(self, field: str):
         self.headers = [self.headermodel.item(i).header for i in range(self.headermodel.rowCount())]
@@ -136,22 +144,24 @@ class NormalizationWidget(QSplitter):
 
     def getCurrentSpecid(self):
         # get selected spectrum idx
-        selectedSpecRow = self.specSelectModel.selectedIndexes()[0].row()
-        currentSpecItem = self.specItemModel.item(selectedSpecRow)
-        specidx = currentSpecItem.idx
+        specidx = None #default value
+        if self.specSelectModel.selectedIndexes():
+            selectedSpecRow = self.specSelectModel.selectedIndexes()[0].row()
+            currentSpecItem = self.specItemModel.item(selectedSpecRow)
+            specidx = currentSpecItem.idx
         return specidx
 
     def updateResultSpec(self, plotChoice=0):
-        # get current map idx
-        if not self.isMapOpen():
-            return
+        # get current map idx and selected spectrum idx
         specidx = self.getCurrentSpecid()
+        if (not self.isMapOpen()) or (specidx is None):
+            return
         # create larch Group object
         out = lchGroup()
         out.energy, out.mu = self.energyList[self.selectMapidx], self.dataSets[self.selectMapidx][specidx]
         # calculate pre/post edge
         pre_edge(out, group=out)
-
+        # clean up plots
         self.rawSpectra.clearAll()
         self.resultSpectra.clearAll()
         if plotChoice == 0: # plot raw spectrum
@@ -164,11 +174,10 @@ class NormalizationWidget(QSplitter):
             self.resultSpectra.plotEdge(out, plotType='flat')
 
     def updateRawSpec(self):
-        # get current map idx
-        if not self.isMapOpen():
-            return
-        # get selected spectrum idx
+        # get current map idx and selected spectrum idx
         specidx = self.getCurrentSpecid()
+        if (not self.isMapOpen()) or (specidx is None):
+            return
         # make plots
         plotChoice = self.normBox.currentIndex()
         if plotChoice == 0:
@@ -204,5 +213,17 @@ class NormalizationWidget(QSplitter):
             item = QStandardItem(mapName + '# ' + str(idx))
             item.idx = idx
             self.specItemModel.appendRow(item)
+
+    def removeSpec(self):
+        # get current selectedSpecRow
+        if self.specSelectModel.selectedIndexes():
+            selectedSpecRow = self.specSelectModel.selectedIndexes()[0].row()
+            self.specItemModel.removeRow(selectedSpecRow)
+            # clean up plots
+            self.rawSpectra.clearAll()
+            self.resultSpectra.clearAll()
+
+            print(self.specItemModel.rowCount())
+
 
     
