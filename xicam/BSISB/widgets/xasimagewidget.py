@@ -67,7 +67,7 @@ class xasSpectraWidget(SpectraPlotWidget):
             self.txt.setHtml(txt_html)
             self.cross.setData([x_val], [y_val])
 
-    def addDataLabel(self, x, y):
+    def addDataCursor(self, x, y):
         self.addItem(self.line)
         self.addItem(self.cross)
         ymax = np.max(y)
@@ -93,11 +93,8 @@ class xasSpectraWidget(SpectraPlotWidget):
         self.plotItem.addLegend(offset=(-1, -1))
         x = self._x = dataGroup.energy # self._x, self._mu for getEnergy
         y = self._mu = dataGroup.mu
-        if plotType == 'raw':
-            self._y = None # disable getEnergy func
-            self.plotItem.plot(x, y, name='Raw', pen=mkPen('w', width=2))
-        elif plotType == 'edge':
-            self._y = None # disable getEnergy func
+        self._y = None  # disable getEnergy func
+        if plotType == 'edge':
             self.plotItem.plot(x, y, name='Raw', pen=mkPen('w', width=2))
             self.plotItem.plot(x, dataGroup.pre_edge, name='Pre_edge', pen=mkPen('r', style=Qt.DotLine, width=2))
             self.plotItem.plot(x, dataGroup.post_edge, name='Post_edge', pen=mkPen('g', style=Qt.DotLine, width=2))
@@ -108,7 +105,7 @@ class xasSpectraWidget(SpectraPlotWidget):
             y = self._mu = dataGroup.flat
             self.plotItem.plot(x, y, name='Flattened', pen=mkPen('y', width=2))
         # add infinityline, cross
-        self.addDataLabel(x, y)
+        self.addDataCursor(x, y)
 
 class xasImageView(QSplitter):
     def __init__(self):

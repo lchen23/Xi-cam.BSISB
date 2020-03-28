@@ -172,6 +172,7 @@ class NormalizationWidget(QSplitter):
         # make plots
         plotChoice = self.normBox.currentIndex()
         if plotChoice == 0:
+            self.rawSpectra._mu = None # disable getMu func
             self.rawSpectra.showSpectra(specidx)
         else:
             self.updateResultSpec(plotChoice)
