@@ -4,7 +4,7 @@ import numpy as np
 from qtpy.QtCore import *
 from qtpy.QtWidgets import *
 from qtpy.QtGui import *
-from pyqtgraph import TextItem
+from pyqtgraph import PlotWidget, PlotDataItem, TextItem, mkPen
 from xicam.core import msg
 from xicam.BSISB.widgets.spectraplotwidget import SpectraPlotWidget
 from xicam.BSISB.widgets.mapviewwidget import MapViewWidget
@@ -19,7 +19,10 @@ class xasSpectraWidget(SpectraPlotWidget):
     def __init__(self):
         super(xasSpectraWidget, self).__init__()
         self.line.setValue(7000)
+        self.txt = TextItem('', anchor=(0, 0))
         self.getViewBox().invertX(False)
+        self.line.sigPositionChanged.connect(self.getMu)
+        self._mu = None
 
     def plot(self, x, y, *args, **kwargs):
         # set up infinity line and get its position
@@ -50,6 +53,62 @@ class xasSpectraWidget(SpectraPlotWidget):
         self.cross.setData([x_val], [y_val])
         self.addItem(self.txt)
 
+    def getMu(self):
+        if self._mu is not None:
+            x_val = self.line.value()
+            if x_val == 0:
+                y_val = 0
+            else:
+                idx = val2ind(x_val, self._x)
+                x_val = self._x[idx]
+                y_val = self._mu[idx]
+            txt_html = f'<div style="text-align: center"><span style="color: #0FF; font-size: 12pt">\
+                                                 X = {x_val: .2f}, Y = {y_val: .4f}</div>'
+            self.txt.setHtml(txt_html)
+            self.cross.setData([x_val], [y_val])
+
+    def addDataLabel(self, x, y):
+        self.addItem(self.line)
+        self.addItem(self.cross)
+        ymax = np.max(y)
+        self.txt.setText('')
+        self.txt.setPos(x[0], 0.95 * ymax)
+        self.addItem(self.txt)
+        self.getMu()
+
+    def clearAll(self):
+        # remove legend
+        _legend = self.plotItem.legend
+        if (_legend is not None) and (_legend.scene() is not None):
+            _legend.scene().removeItem(_legend)
+        self.clear()
+
+    def plotEdge(self, dataGroup, plotType='raw'):
+        """
+        make plots for Larch Group object
+        :param dataGroup: Larch Group object
+        :return:
+        """
+        # add legend
+        self.plotItem.addLegend(offset=(-1, -1))
+        x = self._x = dataGroup.energy # self._x, self._mu for getEnergy
+        y = self._mu = dataGroup.mu
+        if plotType == 'raw':
+            self._y = None # disable getEnergy func
+            self.plotItem.plot(x, y, name='Raw', pen=mkPen('w', width=2))
+        elif plotType == 'edge':
+            self._y = None # disable getEnergy func
+            self.plotItem.plot(x, y, name='Raw', pen=mkPen('w', width=2))
+            self.plotItem.plot(x, dataGroup.pre_edge, name='Pre_edge', pen=mkPen('r', style=Qt.DotLine, width=2))
+            self.plotItem.plot(x, dataGroup.post_edge, name='Post_edge', pen=mkPen('g', style=Qt.DotLine, width=2))
+        elif plotType == 'norm':
+            y = self._mu = dataGroup.norm
+            self.plotItem.plot(x, y, name='Normalized', pen=mkPen('y', width=2))
+        elif plotType == 'flat':
+            y = self._mu = dataGroup.flat
+            self.plotItem.plot(x, y, name='Flattened', pen=mkPen('y', width=2))
+        # add infinityline, cross
+        self.addDataLabel(x, y)
 
 class xasImageView(QSplitter):
     def __init__(self):
