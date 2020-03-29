@@ -2,11 +2,10 @@ from qtpy.QtWidgets import *
 from qtpy.QtCore import Qt, QItemSelectionModel
 from qtpy.QtGui import QStandardItemModel, QStandardItem, QFont
 from pyqtgraph.parametertree import ParameterTree, Parameter
-from pyqtgraph import PlotWidget, TextItem, mkPen
 from xicam.core import msg
 from xicam.BSISB.widgets.xasimagewidget import xasSpectraWidget
-from larch import Group as lchGroup
-from larch.xafs import pre_edge
+# from larch import Group as lchGroup
+# from larch.xafs import pre_edge
 
 class NormalizationParameters(ParameterTree):
 
@@ -44,6 +43,25 @@ class NormalizationParameters(ParameterTree):
                                              ])
         self.setParameters(self.parameter, showTop=False)
         self.setIndentation(0)
+        #change Fonts
+        self.fontSize = 12
+        font = QFont("Helvetica [Cronyx]", self.fontSize)
+        boldFont = QFont("Helvetica [Cronyx]", self.fontSize, QFont.Bold)
+        self.header().setFont(font)
+        for item in self.listAllItems():
+            if hasattr(item,'widget'):
+                item.setFont(0, boldFont)
+                item.widget.setFont(font)
+                item.displayLabel.setFont(font)
+                item.widget.setMaximumHeight(40)
+        # init params dict
+        self.params = {}
+        for child in self.parameter.childs:
+            self.params[child.name()] = None
+
+    def updateParam(self, name):
+        # get latest values of a parameter
+        self.params[name] = self.parameter[name]
 
 class NormalizationWidget(QSplitter):
     def __init__(self, headermodel, selectionmodel):
@@ -64,19 +82,18 @@ class NormalizationWidget(QSplitter):
         self.buttons.setLayout(self.buttonlayout)
         #set up buttons
         self.fontSize = 12
-        font = QFont()
-        font.setPointSize(self.fontSize)
-        self.loadBtn = QToolButton()
+        font = QFont("Helvetica [Cronyx]", self.fontSize)
+        self.loadBtn = QPushButton()
         self.loadBtn.setText('Load spectra')
         self.loadBtn.setFont(font)
-        self.removeBtn = QToolButton()
+        self.removeBtn = QPushButton()
         self.removeBtn.setText('Remove spectrum')
         self.removeBtn.setFont(font)
         self.normBox = QComboBox()
-        self.normBox.addItems(['Raw','Normalized', 'Flattened', 'mback', 'mback + poly normalized',
+        self.normBox.addItems(['Plot type', 'Raw','Normalized', 'Flattened', 'mback', 'mback + poly normalized',
          '1st derivative', 'Normalized + derivative'])
         self.normBox.setFont(font)
-        self.batchBtn = QToolButton()
+        self.batchBtn = QPushButton()
         self.batchBtn.setText('Batch Process')
         self.batchBtn.setFont(font)
         # add all buttons
@@ -89,6 +106,13 @@ class NormalizationWidget(QSplitter):
         self.specItemModel = QStandardItemModel()
         self.specSelectModel = QItemSelectionModel(self.specItemModel)
         self.speclistview = QListView()
+        self.specListWidget = QWidget()
+        self.listLayout = QVBoxLayout()
+        self.specListWidget.setLayout(self.listLayout)
+        specListTitle = QLabel('Spectrum List')
+        specListTitle.setFont(font)
+        self.listLayout.addWidget(specListTitle)
+        self.listLayout.addWidget(self.speclistview)
         self.speclistview.setModel(self.specItemModel)
         self.speclistview.setSelectionModel(self.specSelectModel)
         # spectrum plot
@@ -100,12 +124,13 @@ class NormalizationWidget(QSplitter):
         #assemble widgets
         self.buttons_and_params.addWidget(self.parametertree)
         self.buttons_and_params.addWidget(self.buttons)
+        self.buttons_and_params.setSizes([500, 100])
         self.paramsplitter.addWidget(self.buttons_and_params)
         self.paramsplitter.addWidget(self.rawSpectra)
         self.paramsplitter.addWidget(self.resultSpectra)
         self.paramsplitter.setSizes([100, 50, 50])
         self.addWidget(self.paramsplitter)
-        self.addWidget(self.speclistview)
+        self.addWidget(self.specListWidget)
         self.setSizes([1000, 200])
 
         # Connect signals
@@ -154,22 +179,23 @@ class NormalizationWidget(QSplitter):
     def updateResultSpec(self, plotChoice=0):
         # get current map idx and selected spectrum idx
         specidx = self.getCurrentSpecid()
-        if (not self.isMapOpen()) or (specidx is None):
+        if (not self.isMapOpen()) or (specidx is None) or (plotChoice == 0):
             return
         # create larch Group object
-        out = lchGroup()
-        out.energy, out.mu = self.energyList[self.selectMapidx], self.dataSets[self.selectMapidx][specidx]
-        # calculate pre/post edge
-        pre_edge(out, group=out)
+        out = None
+        # out = lchGroup()
+        # out.energy, out.mu = self.energyList[self.selectMapidx], self.dataSets[self.selectMapidx][specidx]
+        # # calculate pre/post edge
+        # pre_edge(out, group=out)
         # clean up plots
         self.rawSpectra.clearAll()
         self.resultSpectra.clearAll()
-        if plotChoice == 0: # plot raw spectrum
+        if plotChoice == 1: # plot raw spectrum
             self.updateRawSpec()
-        elif plotChoice == 1:# plot raw, edges, norm
+        elif plotChoice == 2:# plot raw, edges, norm
             self.rawSpectra.plotEdge(out, plotType='edge')
             self.resultSpectra.plotEdge(out, plotType='norm')
-        elif plotChoice == 2:# plot raw, edges, flattened
+        elif plotChoice == 3:# plot raw, edges, flattened
             self.rawSpectra.plotEdge(out, plotType='edge')
             self.resultSpectra.plotEdge(out, plotType='flat')
 
@@ -181,6 +207,8 @@ class NormalizationWidget(QSplitter):
         # make plots
         plotChoice = self.normBox.currentIndex()
         if plotChoice == 0:
+            return
+        elif plotChoice == 1:
             self.rawSpectra._mu = None # disable getMu func
             self.rawSpectra.showSpectra(specidx)
         else:
