@@ -104,6 +104,9 @@ class xasSpectraWidget(SpectraPlotWidget):
         elif plotType == 'flat':
             y = self._mu = dataGroup.flat
             self.plotItem.plot(x, y, name='Flattened', pen=mkPen('y', width=2))
+        elif plotType == 'derivative':
+            y = self._mu = dataGroup.dmude
+            self.plotItem.plot(x, y, name='1st derivative', pen=mkPen('y', width=2))
         # add infinityline, cross
         self.addDataCursor(x, y)
 
