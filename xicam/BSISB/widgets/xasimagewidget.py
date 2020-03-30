@@ -4,7 +4,7 @@ import numpy as np
 from qtpy.QtCore import *
 from qtpy.QtWidgets import *
 from qtpy.QtGui import *
-from pyqtgraph import PlotWidget, PlotDataItem, TextItem, mkPen
+from pyqtgraph import PlotDataItem, TextItem, mkPen
 from xicam.core import msg
 from xicam.BSISB.widgets.spectraplotwidget import SpectraPlotWidget
 from xicam.BSISB.widgets.mapviewwidget import MapViewWidget
@@ -20,6 +20,8 @@ class xasSpectraWidget(SpectraPlotWidget):
         super(xasSpectraWidget, self).__init__()
         self.line.setValue(7000)
         self.txt = TextItem('', anchor=(0, 0))
+        self.cross = PlotDataItem([7000], [0], symbolBrush=(255, 255, 0), symbolPen=(255, 255, 0),
+                                  symbol='+',symbolSize=20)
         self.getViewBox().invertX(False)
         self.line.sigPositionChanged.connect(self.getMu)
         self._mu = None
@@ -62,7 +64,7 @@ class xasSpectraWidget(SpectraPlotWidget):
                 idx = val2ind(x_val, self._x)
                 x_val = self._x[idx]
                 y_val = self._mu[idx]
-            txt_html = f'<div style="text-align: center"><span style="color: #0FF; font-size: 12pt">\
+            txt_html = f'<div style="text-align: center"><span style="color: #FFF; font-size: 12pt">\
                                                  X = {x_val: .2f}, Y = {y_val: .4f}</div>'
             self.txt.setHtml(txt_html)
             self.cross.setData([x_val], [y_val])
@@ -93,6 +95,7 @@ class xasSpectraWidget(SpectraPlotWidget):
         self.plotItem.addLegend(offset=(-1, -1))
         x = self._x = dataGroup.energy # self._x, self._mu for getEnergy
         y = self._mu = dataGroup.mu
+        n = len(x) # array length
         self._y = None  # disable getEnergy func
         if plotType == 'edge':
             self.plotItem.plot(x, y, name='Raw', pen=mkPen('w', width=2))
@@ -100,15 +103,49 @@ class xasSpectraWidget(SpectraPlotWidget):
             self.plotItem.plot(x, dataGroup.post_edge, name='Post_edge', pen=mkPen('g', style=Qt.DotLine, width=2))
         elif plotType == 'norm':
             y = self._mu = dataGroup.norm
-            self.plotItem.plot(x, y, name='Normalized', pen=mkPen('y', width=2))
+            self.plotItem.plot(x, y, name='Normalized', pen=mkPen('r', width=2))
         elif plotType == 'flat':
             y = self._mu = dataGroup.flat
-            self.plotItem.plot(x, y, name='Flattened', pen=mkPen('y', width=2))
-        elif plotType == 'derivative':
-            y = self._mu = dataGroup.dmude
-            self.plotItem.plot(x, y, name='1st derivative', pen=mkPen('y', width=2))
+            self.plotItem.plot(x, y, name='Flattened', pen=mkPen('r', width=2))
+        elif plotType == 'norm+mback':
+            y = self._mu = dataGroup.norm_mback
+            self.plotItem.plot(x, y, name='Mback Normalized', pen=mkPen('r', width=2))
+            self.plotItem.plot(x, dataGroup.norm_poly, name='Poly Normalized', pen=mkPen('g', width=2))
+        elif plotType == 'raw+derivative':
+            y = self._mu = dataGroup.mu # for data cursor
+            scale, offset = self.alignTwoCurve(dataGroup.mu[n//4:n*3//4], dataGroup.dmude[n//4:n*3//4])
+            dmudeScaled = dataGroup.dmude * scale + offset
+            ymin, ymax = np.min(y), np.max(y)
+            self.getViewBox().setYRange(ymin, ymax, padding=0.1)
+            self.plotItem.plot(x, dataGroup.mu, name='Raw', pen=mkPen('r', width=2))
+            self.plotItem.plot(x, dmudeScaled, name='1st derivative (scaled)', pen=mkPen('g', width=2))
+        elif plotType == 'norm+derivative':
+            y = self._mu = dataGroup.norm_poly
+            scale, offset = self.alignTwoCurve(dataGroup.norm_poly[n//4:n*3//4], dataGroup.dnormde[n//4:n*3//4])
+            dnormdeScaled = dataGroup.dnormde * scale + offset
+            ymin, ymax = np.min(y), np.max(y)
+            self.getViewBox().setYRange(ymin, ymax, padding=0.1)
+            self.plotItem.plot(x, y, name='Poly normalized', pen=mkPen('r', width=2))
+            self.plotItem.plot(x, dnormdeScaled, name='1st derivative (normed, scaled)', pen=mkPen('g', width=2))
         # add infinityline, cross
         self.addDataCursor(x, y)
+
+    def alignTwoCurve(self, y1, y2):
+        """
+        Align the scale of y2 to that of y1
+        :param y1: the main curve
+        :param y2: the curve to be aligned
+        :return:
+        scale: scale factor
+        offset: y offset
+        """
+        y1Range, y2Range = np.max(y1) - np.min(y1), np.max(y2) - np.min(y2)
+        scale = y1Range / y2Range
+        y = y2 * scale
+        offset = np.max(y1) - np.max(y)
+        return scale, offset
+
+
 
 class xasImageView(QSplitter):
     def __init__(self):

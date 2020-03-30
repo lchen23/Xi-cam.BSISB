@@ -7,7 +7,7 @@ from pyqtgraph.parametertree import ParameterTree, Parameter
 from xicam.core import msg
 from xicam.BSISB.widgets.xasimagewidget import xasSpectraWidget
 from larch import Group as lchGroup
-from larch.xafs import pre_edge
+from larch.xafs import pre_edge, mback_norm
 
 
 class NormalizationParameters(ParameterTree):
@@ -20,6 +20,13 @@ class NormalizationParameters(ParameterTree):
                                    children=[{'name': "Normalization method",
                                               'values': ['polynomial', 'mback'],
                                               'value': 'polynomial',
+                                              'type': 'list'},
+                                             {'name': "Z number",
+                                              'value': 0,
+                                              'type': 'int'},
+                                             {'name': "Edge",
+                                              'value': 'K',
+                                              'values': ['K', 'L2', 'L3'],
                                               'type': 'list'},
                                              {'name': "E0",
                                               'value': 0,
@@ -46,13 +53,12 @@ class NormalizationParameters(ParameterTree):
                                               'type': 'float'},
                                              {'name': "Normalization high E(E0=0)",
                                               'value': 0,
-                                              'type': 'float'},
-                                             {'name': "Y offset",
-                                              'value': 0,
-                                              'type': 'float'},
+                                              'type': 'float'}
                                              ])
         self.setParameters(self.parameter, showTop=False)
         self.setIndentation(0)
+        self.parameter.child('Z number').hide()
+        self.parameter.child('Edge').hide()
         # change Fonts
         self.fontSize = 12
         font = QFont("Helvetica [Cronyx]", self.fontSize)
@@ -66,6 +72,8 @@ class NormalizationParameters(ParameterTree):
                 item.widget.setMaximumHeight(40)
         # init params dict
         self.argMap = {"E0": 'e0',
+                       "Z number": 'z',
+                       "Edge": 'edge',
                        "Edge step": 'step',
                        "Pre-edge low E(E0=0)": 'pre1',
                        "Pre-edge high E(E0=0)": 'pre2',
@@ -74,28 +82,49 @@ class NormalizationParameters(ParameterTree):
                        "Polynomial order": 'nnorm',
                        "Victoreen order": 'nvict'
                        }
-        # set self.preEdgeArgs default value to e0 = None, step = None, pre1 = None, pre2 = None,
+        # set self.normArgs default value to e0 = None, step = None, pre1 = None, pre2 = None,
         # norm1 = None, norm2 = None, nnorm = None, nvict = 0
-        self.preEdgeArgs = {}
+        self.normArgs = {}
         for child in self.parameter.childs:
             if child.name() == "Victoreen order":
-                self.preEdgeArgs['nvict'] = 0
-            elif child.name() not in ["Normalization method", "Y offset"]:
-                self.preEdgeArgs[self.argMap[child.name()]] = None
+                self.normArgs['nvict'] = 0
+            elif child.name() == "Edge":
+                self.normArgs['edge'] = 'K'
+            elif child.name() not in ["Normalization method"]:
+                self.normArgs[self.argMap[child.name()]] = None
 
         # connect signals
+        self.parameter.child('Normalization method').sigValueChanged.connect(self.updateMethod)
         for name in self.argMap.keys():
             self.parameter.child(name).sigValueChanged.connect(partial(self.updateParam, name))
 
-    def updateParam(self, name):
-        # get latest parameter values
-        if self.parameter.child(name).valueIsDefault() and (name != "Victoreen order"):
-            # set pre_edge args(except 'nvict') to default value
-            self.preEdgeArgs[self.argMap[name]] = None
+    def updateMethod(self):
+        """
+        Toggle parameter menu based on fit method
+        :return:
+        """
+        if self.parameter["Normalization method"] == 'mback':
+            self.parameter.child('Z number').show()
+            self.parameter.child('Edge').show()
+            self.parameter.child('Edge step').hide()
         else:
-            # either value is not default or param name = "Victoreen order"
-            self.preEdgeArgs[self.argMap[name]] = self.parameter[name]
-        self.sigParamChanged.emit(self.preEdgeArgs)
+            self.parameter.child('Z number').hide()
+            self.parameter.child('Edge').hide()
+            self.parameter.child('Edge step').show()
+
+    def updateParam(self, name):
+        """
+        get latest parameter values
+        :param name: parameter name
+        :return: None
+        """
+        if self.parameter.child(name).valueIsDefault() and (name not in ["Victoreen order", "Edge"]):
+            # set pre_edge args(except 'nvict') to default value
+            self.normArgs[self.argMap[name]] = None
+        else:
+            # either value is not default or param name in ["Victoreen order","Edge"]
+            self.normArgs[self.argMap[name]] = self.parameter[name]
+        self.sigParamChanged.emit(self.normArgs)
 
 
 class NormalizationWidget(QSplitter):
@@ -131,9 +160,9 @@ class NormalizationWidget(QSplitter):
         self.removeBtn.setText('Remove spectrum')
         self.removeBtn.setFont(font)
         self.normBox = QComboBox()
-        self.normBox.addItems(
-            ['Plot type', 'Raw', 'Normalized', 'Flattened', '1st derivative', 'mback', 'mback + poly normalized',
-             'Normalized + derivative'])
+        self.normBox.addItems(['Raw spectrum', 'Normalized', 'Flattened', 'Mback + poly normalized',
+                               'Raw + 1st derivative', 'Normalized + 1st derivative',
+                               ])
         self.normBox.setFont(font)
         self.batchBtn = QPushButton()
         self.batchBtn.setText('Batch Process')
@@ -172,7 +201,7 @@ class NormalizationWidget(QSplitter):
         self.resultSpectra = xasSpectraWidget()
         # ParameterTree
         self.parametertree = NormalizationParameters()
-        self.preEdgeArgs = self.parametertree.preEdgeArgs
+        self.normArgs = self.parametertree.normArgs
         self.argMap = self.parametertree.argMap
 
         # assemble widgets
@@ -239,39 +268,68 @@ class NormalizationWidget(QSplitter):
         plotChoice = self.normBox.currentIndex()
         # get current map idx and selected spectrum idx
         specidx = self.getCurrentSpecid()
-        if (not self.isMapOpen()) or (specidx is None) or (plotChoice == 0):
+        if (not self.isMapOpen()) or (specidx is None):
             return
+
+        self.out = None
+        # kwargs for pre_edge func
+        preEdgeArgs = self.normArgs.copy()
+        preEdgeArgs.pop('z', None)
+        preEdgeArgs.pop('edge', None)
         # create larch Group object
-        out = None
-        out = lchGroup()
-        out.energy, out.mu = self.energyList[self.selectMapidx], self.dataSets[self.selectMapidx][specidx]
-        # calculate pre/post edge
-        pre_edge(out, group=out, **self.preEdgeArgs)
+        # self.out = None
+        self.out = lchGroup()
+        self.out.energy, self.out.mu = self.energyList[self.selectMapidx], self.dataSets[self.selectMapidx][specidx]
+        # calculate pre/post edge, polynomial fit
+        pre_edge(self.out, group=self.out, **preEdgeArgs)
+        self.out.dmude = np.where(np.abs(self.out.dmude) == np.inf, 0, self.out.dmude)  # fix infinity values
+        self.out.dnormde = self.out.dmude / (self.out.edge_step if self.out.edge_step != 0 else 1)
+        if plotChoice in [3]:  # mback fit
+            # get calculated pre2
+            if self.normArgs['pre2'] is None:
+                self.normArgs['pre2'] = self.out.pre_edge_details.pre2
+            # get calculated norm1
+            if self.normArgs['norm1'] is None:
+                self.normArgs['norm1'] = self.out.pre_edge_details.norm1
+            # kwargs for mback func
+            mbackArgs = self.normArgs.copy()
+            mbackArgs.pop('step', None)
+            mback_norm(self.out, group=self.out, **mbackArgs)
+
         # clean up plots
         self.rawSpectra.clearAll()
         self.resultSpectra.clearAll()
-        if plotChoice == 1:  # plot raw spectrum
+        if plotChoice == 0:  # plot raw spectrum
             self.updateRawSpec()
-        elif plotChoice == 2:  # plot raw, edges, norm
-            self.rawSpectra.plotEdge(out, plotType='edge')
-            self.resultSpectra.plotEdge(out, plotType='norm')
-        elif plotChoice == 3:  # plot raw, edges, flattened
-            self.rawSpectra.plotEdge(out, plotType='edge')
-            self.resultSpectra.plotEdge(out, plotType='flat')
-        elif plotChoice == 4:  # plot raw, edges, 1st derivative
-            out.dmude = np.where(np.abs(out.dmude) == np.inf, 0, out.dmude)  # fix infinity
-            self.rawSpectra.plotEdge(out, plotType='edge')
-            self.resultSpectra.plotEdge(out, plotType='derivative')
+        elif plotChoice == 1:  # plot raw, edges, norm
+            self.rawSpectra.plotEdge(self.out, plotType='edge')
+            self.resultSpectra.plotEdge(self.out, plotType='norm')
+        elif plotChoice == 2:  # plot raw, edges, flattened
+            self.rawSpectra.plotEdge(self.out, plotType='edge')
+            self.resultSpectra.plotEdge(self.out, plotType='flat')
+        elif plotChoice == 3:  # plot raw, edges, Mback + poly normalized
+            self.rawSpectra.plotEdge(self.out, plotType='edge')
+            self.resultSpectra.plotEdge(self.out, plotType='norm+mback')
+        elif plotChoice == 4:  # plot raw, edges, Raw + 1st derivative
+            self.rawSpectra.plotEdge(self.out, plotType='edge')
+            self.resultSpectra.plotEdge(self.out, plotType='raw+derivative')
+        elif plotChoice == 5:  # plot raw, edges, normalized + 1st derivative
+            self.rawSpectra.plotEdge(self.out, plotType='edge')
+            self.resultSpectra.plotEdge(self.out, plotType='norm+derivative')
+
         # make results report
-        if plotChoice != 1:
-            result = ''
-            for item in dir(out):
-                if item in self.reportList:
-                    result += item + ': ' + f'{getattr(out, item): .4f}' + '\n'
-            for item in dir(out.pre_edge_details):
-                if item in self.reportList:
-                    result += item + ': ' + f'{getattr(out.pre_edge_details, item): .4f}' + '\n'
-            self.infoBox.setText(result)
+        if plotChoice != 0:
+            self.makeReport(self.out)
+
+    def makeReport(self, output):
+        result = ''
+        for item in dir(output):
+            if item in self.reportList:
+                result += item + ': ' + f'{getattr(output, item): .4f}' + '\n'
+        for item in dir(output.pre_edge_details):
+            if item in self.reportList:
+                result += item + ': ' + f'{getattr(output.pre_edge_details, item): .4f}' + '\n'
+        self.infoBox.setText(result)
 
     def updateRawSpec(self):
         # get current map idx and selected spectrum idx
@@ -281,10 +339,8 @@ class NormalizationWidget(QSplitter):
         # make plots
         plotChoice = self.normBox.currentIndex()
         if plotChoice == 0:
-            return
-        elif plotChoice == 1:
             self.rawSpectra._mu = None  # disable getMu func
-            self.infoBox.setText('') # clear txt
+            self.infoBox.setText('')  # clear txt
             self.rawSpectra.showSpectra(specidx)
         else:
             self.updateResultSpec()
