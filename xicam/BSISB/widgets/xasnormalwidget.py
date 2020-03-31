@@ -1,11 +1,15 @@
+import os
 import numpy as np
+import pandas as pd
 from functools import partial
 from qtpy.QtWidgets import *
 from qtpy.QtCore import Qt, QItemSelectionModel, Signal
 from qtpy.QtGui import QStandardItemModel, QStandardItem, QFont
 from pyqtgraph.parametertree import ParameterTree, Parameter
 from xicam.core import msg
+from lbl_ir.data_objects.ir_map import ir_map
 from xicam.BSISB.widgets.xasimagewidget import xasSpectraWidget
+from xicam.BSISB.widgets.uiwidget import MsgBox, YesNoDialog
 from larch import Group as lchGroup
 from larch.xafs import pre_edge, mback_norm
 
@@ -133,8 +137,11 @@ class NormalizationWidget(QSplitter):
         self.headermodel = headermodel
         self.mapselectmodel = selectionmodel
         self.selectMapidx = 0
-        self.reportList = ['e0', 'edge_step', 'nnorm', 'norm1', 'norm2', 'nvict',
-                           'pre1', 'pre2', 'pre_offset', 'pre_slope']
+        self.resultDict = {}
+        self.isBatchProcessOn = False
+        self.reportList = ['atsym', 'edge', 'e0', 'edge_step_poly', 'edge_step_mback', 'nnorm', 'norm1',
+                           'norm2', 'nvict', 'pre1', 'pre2', 'pre_offset', 'pre_slope']
+        self.arrayList = ['norm_poly', 'norm_mback', 'flat']
 
         # split between spectrum parameters and viewwindow, vertical split
         self.params_and_specview = QSplitter()
@@ -160,19 +167,30 @@ class NormalizationWidget(QSplitter):
         self.removeBtn.setText('Remove spectrum')
         self.removeBtn.setFont(font)
         self.normBox = QComboBox()
-        self.normBox.addItems(['Raw spectrum', 'Normalized', 'Flattened', 'Mback + poly normalized',
-                               'Raw + 1st derivative', 'Normalized + 1st derivative',
+        self.normBox.addItems(['Raw spectrum',
+                               'Normalized',
+                               'Flattened',
+                               'Mback + poly normalized',
+                               'Raw + 1st derivative',
+                               'Normalized + 1st derivative',
                                ])
         self.normBox.setFont(font)
         self.batchBtn = QPushButton()
         self.batchBtn.setText('Batch Process')
         self.batchBtn.setFont(font)
+        self.saveResultBox = QComboBox()
+        self.saveResultBox.addItems(['Save poly normalized',
+                                     'Save mback normalized',
+                                     'Save flattened',
+                                     'Save all',
+                                     ])
+        self.saveResultBox.setFont(font)
         # add all buttons
         self.buttonlayout.addWidget(self.loadBtn)
         self.buttonlayout.addWidget(self.removeBtn)
         self.buttonlayout.addWidget(self.normBox)
         self.buttonlayout.addWidget(self.batchBtn)
-
+        self.buttonlayout.addWidget(self.saveResultBox)
         # define report
         self.reportWidget = QWidget()
         self.reportWidget.setLayout(QVBoxLayout())
@@ -214,23 +232,26 @@ class NormalizationWidget(QSplitter):
         self.params_and_specview.setSizes([150, 50, 50])
         self.speclist_and_report.addWidget(self.specListWidget)
         self.speclist_and_report.addWidget(self.reportWidget)
-        self.speclist_and_report.setSizes([250, 100])
+        self.speclist_and_report.setSizes([150, 100])
         self.addWidget(self.params_and_specview)
         self.addWidget(self.speclist_and_report)
         self.setSizes([1000, 200])
 
         # Connect signals
-        self.specSelectModel.selectionChanged.connect(self.updateRawSpec)
         self.loadBtn.clicked.connect(self.loadData)
-        self.normBox.currentIndexChanged.connect(self.updateResultSpec)
         self.removeBtn.clicked.connect(self.removeSpec)
-        self.parametertree.sigParamChanged.connect(self.updateResultSpec)
+        self.batchBtn.clicked.connect(self.batchProcess)
+        self.specSelectModel.selectionChanged.connect(self.updateSpecPlot)
+        self.normBox.currentIndexChanged.connect(self.updateSpecPlot)
+        self.parametertree.sigParamChanged.connect(self.updateSpecPlot)
 
     def setHeader(self, field: str):
         self.headers = [self.headermodel.item(i).header for i in range(self.headermodel.rowCount())]
         self.field = field
         self.energyList = []
         self.rc2indList = []
+        self.ind2rcList = []
+        self.pathList = []
         self.dataSets = []
 
         # get wavenumbers, rc2ind
@@ -238,6 +259,8 @@ class NormalizationWidget(QSplitter):
             dataEvent = next(header.events(fields=[field]))
             self.energyList.append(dataEvent['wavenumbers'])
             self.rc2indList.append(dataEvent['rc_index'])
+            self.ind2rcList.append(dataEvent['index_rc'])
+            self.pathList.append(dataEvent['path'])
             # get raw spectra
             data = None
             try:  # spectra datasets
@@ -263,15 +286,20 @@ class NormalizationWidget(QSplitter):
             specidx = currentSpecItem.idx
         return specidx
 
-    def updateResultSpec(self):
-        # get plot choice
-        plotChoice = self.normBox.currentIndex()
+    def updateSpecPlot(self):
         # get current map idx and selected spectrum idx
         specidx = self.getCurrentSpecid()
-        if (not self.isMapOpen()) or (specidx is None):
+        if not self.isMapOpen():
+            return
+        elif self.specItemModel.rowCount() == 0:
+            MsgBox('No spectrum is loaded.\nPlease click "Load spectra" to import data.')
+            return
+        elif (specidx is None) and (not self.isBatchProcessOn):
+            MsgBox('No spectrum is selected.\nPlease select a spectrum in the "Spectrum List" to show.')
             return
 
-        self.out = None
+        # get plot choice
+        plotChoice = self.normBox.currentIndex()
         # kwargs for pre_edge func
         preEdgeArgs = self.normArgs.copy()
         preEdgeArgs.pop('z', None)
@@ -285,6 +313,8 @@ class NormalizationWidget(QSplitter):
         self.out.dmude = np.where(np.abs(self.out.dmude) == np.inf, 0, self.out.dmude)  # fix infinity values
         self.out.dnormde = self.out.dmude / (self.out.edge_step if self.out.edge_step != 0 else 1)
         if plotChoice in [3]:  # mback fit
+            # set parameter menu
+            self.parametertree.parameter['Normalization method'] = 'mback'
             # get calculated pre2
             if self.normArgs['pre2'] is None:
                 self.normArgs['pre2'] = self.out.pre_edge_details.pre2
@@ -295,55 +325,57 @@ class NormalizationWidget(QSplitter):
             mbackArgs = self.normArgs.copy()
             mbackArgs.pop('step', None)
             mback_norm(self.out, group=self.out, **mbackArgs)
-
-        # clean up plots
-        self.rawSpectra.clearAll()
-        self.resultSpectra.clearAll()
-        if plotChoice == 0:  # plot raw spectrum
-            self.updateRawSpec()
-        elif plotChoice == 1:  # plot raw, edges, norm
-            self.rawSpectra.plotEdge(self.out, plotType='edge')
-            self.resultSpectra.plotEdge(self.out, plotType='norm')
-        elif plotChoice == 2:  # plot raw, edges, flattened
-            self.rawSpectra.plotEdge(self.out, plotType='edge')
-            self.resultSpectra.plotEdge(self.out, plotType='flat')
-        elif plotChoice == 3:  # plot raw, edges, Mback + poly normalized
-            self.rawSpectra.plotEdge(self.out, plotType='edge')
-            self.resultSpectra.plotEdge(self.out, plotType='norm+mback')
-        elif plotChoice == 4:  # plot raw, edges, Raw + 1st derivative
-            self.rawSpectra.plotEdge(self.out, plotType='edge')
-            self.resultSpectra.plotEdge(self.out, plotType='raw+derivative')
-        elif plotChoice == 5:  # plot raw, edges, normalized + 1st derivative
-            self.rawSpectra.plotEdge(self.out, plotType='edge')
-            self.resultSpectra.plotEdge(self.out, plotType='norm+derivative')
+        else:
+            # set parameter menu
+            self.parametertree.parameter['Normalization method'] = 'polynomial'
 
         # make results report
         if plotChoice != 0:
-            self.makeReport(self.out)
+            self.getReport(self.out)
 
-    def makeReport(self, output):
-        result = ''
+        # if not batch processing, show plots
+        if not self.isBatchProcessOn:
+            # clean up plots
+            self.rawSpectra.clearAll()
+            self.resultSpectra.clearAll()
+            if plotChoice == 0:  # plot raw spectrum
+                self.rawSpectra._mu = None  # disable getMu func
+                self.infoBox.setText('')  # clear txt
+                self.rawSpectra.showSpectra(specidx)
+            elif plotChoice == 1:  # plot raw, edges, norm
+                self.rawSpectra.plotEdge(self.out, plotType='edge')
+                self.resultSpectra.plotEdge(self.out, plotType='norm')
+            elif plotChoice == 2:  # plot raw, edges, flattened
+                self.rawSpectra.plotEdge(self.out, plotType='edge')
+                self.resultSpectra.plotEdge(self.out, plotType='flat')
+            elif plotChoice == 3:  # plot raw, edges, Mback + poly normalized
+                self.rawSpectra.plotEdge(self.out, plotType='edge')
+                self.resultSpectra.plotEdge(self.out, plotType='norm+mback')
+            elif plotChoice == 4:  # plot raw, edges, Raw + 1st derivative
+                self.rawSpectra.plotEdge(self.out, plotType='edge')
+                self.resultSpectra.plotEdge(self.out, plotType='raw+derivative')
+            elif plotChoice == 5:  # plot raw, edges, normalized + 1st derivative
+                self.rawSpectra.plotEdge(self.out, plotType='edge')
+                self.resultSpectra.plotEdge(self.out, plotType='norm+derivative')
+
+    def getReport(self, output):
+        resultTxt = ''
+        # get normalization results
         for item in dir(output):
             if item in self.reportList:
-                result += item + ': ' + f'{getattr(output, item): .4f}' + '\n'
+                if item in ['atsym', 'edge']:
+                    resultTxt += item + ': ' + getattr(output, item) + '\n'
+                else:
+                    resultTxt += item + ': ' + f'{getattr(output, item): .4f}' + '\n'
+            if (item in self.arrayList) or (item in self.reportList):
+                self.resultDict[item] = getattr(output, item)
+        # get pre_edge params
         for item in dir(output.pre_edge_details):
             if item in self.reportList:
-                result += item + ': ' + f'{getattr(output.pre_edge_details, item): .4f}' + '\n'
-        self.infoBox.setText(result)
-
-    def updateRawSpec(self):
-        # get current map idx and selected spectrum idx
-        specidx = self.getCurrentSpecid()
-        if (not self.isMapOpen()) or (specidx is None):
-            return
-        # make plots
-        plotChoice = self.normBox.currentIndex()
-        if plotChoice == 0:
-            self.rawSpectra._mu = None  # disable getMu func
-            self.infoBox.setText('')  # clear txt
-            self.rawSpectra.showSpectra(specidx)
-        else:
-            self.updateResultSpec()
+                resultTxt += item + ': ' + f'{getattr(output.pre_edge_details, item): .4f}' + '\n'
+                self.resultDict[item] = getattr(output.pre_edge_details, item)
+        # send text to report info box
+        self.infoBox.setText(resultTxt)
 
     def loadData(self):
         # get current map idx
@@ -382,4 +414,113 @@ class NormalizationWidget(QSplitter):
             self.rawSpectra.clearAll()
             self.resultSpectra.clearAll()
 
-            print(self.specItemModel.rowCount())
+    def batchProcess(self):
+        # get current map idx
+        if not self.isMapOpen():
+            return
+        elif self.specItemModel.rowCount() == 0:
+            MsgBox('No spectrum is loaded.\nPlease click "Load spectra" to import data.')
+            return
+        # notice to user
+        userMsg = YesNoDialog(f'Ready to batch process selected spectra.\nDo you want to continue?')
+        userChoice = userMsg.choice()
+        if userChoice == QMessageBox.No: # user choose to stop
+            return
+
+        self.isBatchProcessOn = True
+        # set plot type to Mback + poly normalized
+        self.normBox.setCurrentIndex(3)
+
+        # init resultSetsDict, paramsDict
+        self.resultSetsDict = {}
+        self.paramsDict = {}
+        self.paramsDict['specID'] = []
+        self.paramsDict['row_column'] = []
+        energy = self.energyList[self.selectMapidx]
+        ind2rc = self.ind2rcList[self.selectMapidx]
+        filePath = self.pathList[self.selectMapidx]
+        n_energy = len(energy)
+        # note that self.arrayList = ['norm_poly', 'norm_mback', 'flat']
+        for item in self.arrayList:
+            self.resultSetsDict[item] = np.empty((0, n_energy))
+        for item in self.reportList:
+            self.paramsDict[item] = []
+        # batch process begins
+        n_spectra = self.specItemModel.rowCount()
+        for i in range(n_spectra):
+            msg.showMessage(f'Processing {i + 1}/{n_spectra} spectra')
+            # select each spec and collect results
+            self.specSelectModel.select(self.specItemModel.index(i, 0), QItemSelectionModel.ClearAndSelect)
+            # get spec idx
+            currentSpecItem = self.specItemModel.item(i)
+            self.paramsDict['specID'].append(currentSpecItem.idx)
+            self.paramsDict['row_column'].append(ind2rc[currentSpecItem.idx])
+            # append all results into a single array/list
+            for item in self.arrayList:
+                self.resultSetsDict[item] = np.append(self.resultSetsDict[item], self.resultDict[item].reshape(1, -1), axis=0)
+            for item in self.reportList:
+                self.paramsDict[item].append(self.resultDict[item])
+
+        # result collection completed. convert paramsDict to df
+        dfDict = {}
+        dfDict['param'] = pd.DataFrame(self.paramsDict)
+        for item in self.arrayList:
+            # convert resultSetsDict to df and concatenate
+            dfDict[item] = pd.DataFrame(self.resultSetsDict[item], columns=energy.tolist())
+            dfDict[item] = pd.concat([dfDict['param'], dfDict[item]], axis=1)
+
+        #  save df to files
+        msg.showMessage(f'Batch processing is completed! Saving results to csv files.')
+        saveDataChoice = self.saveResultBox.currentIndex()
+        if saveDataChoice != 3: # save a single result
+            saveDataType = self.arrayList[saveDataChoice]
+            dirName, csvName, h5Name = self.saveToFiles(dfDict, filePath, saveDataType)
+            if h5Name is None:
+                MsgBox(f'Processed data was saved as csv file at: \n{dirName + csvName}')
+            else:
+                MsgBox(f'Processed data was saved as: \n\ncsv file at: {dirName + csvName} and \n\nHDF5 file at: {dirName + h5Name}')
+        else: # save all results
+            csvList = []
+            h5List = []
+            for saveDataType in self.arrayList:
+                dirName, csvName, h5Name = self.saveToFiles(dfDict, filePath, saveDataType)
+                csvList.append(csvName)
+                h5List.append(h5Name)
+
+            allcsvName = (' + ').join(csvList)
+            if h5Name is None:
+                MsgBox(f'Processed data was saved as csv file at: \n{dirName + allcsvName}')
+            else:
+                allh5Name = (' + ').join(h5List)
+                MsgBox( f'Processed data was saved as: \n\ncsv file at: {dirName + allcsvName} and \n\nHDF5 file at: {dirName + allh5Name}')
+
+        self.isBatchProcessOn = False # batch process completed
+
+    def saveToFiles(self, dfDict, filePath, saveDataType):
+
+        ind2rc = self.ind2rcList[self.selectMapidx]
+        n_spectra = self.specItemModel.rowCount()
+
+        # get dirname and old filename
+        dirName = os.path.dirname(filePath)
+        dirName += '/'
+        oldFileName = os.path.basename(filePath)
+
+        # save dataFrames to csv file
+        csvName = oldFileName[:-3] + '_' + saveDataType + '.csv'
+        dfDict[saveDataType].to_csv(dirName + csvName)
+
+        # if a full map is processed, also save results to a h5 file
+        h5Name = None
+        if n_spectra == len(ind2rc):
+            fullMap = ir_map(filename=filePath)
+            fullMap.add_image_cube()
+            for i in self.paramsDict['specID']:
+                fullMap.data[i, :] = self.resultSetsDict[saveDataType][i, :]
+                row, col = ind2rc[i]
+                fullMap.imageCube[row, col, :] = fullMap.data[i, :] = self.resultSetsDict[saveDataType][i, :]
+            # save data as hdf5
+            h5Name = oldFileName[:-3] + '_' + saveDataType + '.h5'
+            fullMap.write_as_hdf5(dirName + h5Name)
+
+        return dirName, csvName, h5Name

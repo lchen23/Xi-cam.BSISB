@@ -145,8 +145,6 @@ class xasSpectraWidget(SpectraPlotWidget):
         offset = np.max(y1) - np.max(y)
         return scale, offset
 
-
-
 class xasImageView(QSplitter):
     def __init__(self):
         super(xasImageView, self).__init__()
