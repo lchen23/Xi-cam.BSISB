@@ -303,7 +303,7 @@ class BSISB(GUIPlugin):
 
         self.stages = {#'Xas View': GUILayout(self.xas),
                        "ROI View": GUILayout(self.imageview),
-                       "Data Process": GUILayout(self.normalization)
+                       "Normalization": GUILayout(self.normalization)
                        }
         super(BSISB, self).__init__(*args, **kwargs)
 
