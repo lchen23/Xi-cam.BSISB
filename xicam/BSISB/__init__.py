@@ -365,4 +365,7 @@ class BSISB(GUIPlugin):
             self.selectionmodel.select(self.headermodel.index(tabIdx, 0), QItemSelectionModel.ClearAndSelect)
         # clear specItemModel
         self.normalization.specItemModel.clear()
+        self.normalization.rawSpectra.clearAll()
+        self.normalization.resultSpectra.clearAll()
+        self.normalization.infoBox.setText('')
 

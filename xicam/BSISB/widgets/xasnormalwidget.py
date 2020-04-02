@@ -176,7 +176,7 @@ class NormalizationWidget(QSplitter):
                                ])
         self.normBox.setFont(font)
         self.batchBtn = QPushButton()
-        self.batchBtn.setText('Batch Process')
+        self.batchBtn.setText('Batch process')
         self.batchBtn.setFont(font)
         self.saveResultBox = QComboBox()
         self.saveResultBox.addItems(['Save poly normalized',
@@ -409,10 +409,13 @@ class NormalizationWidget(QSplitter):
         # get current selectedSpecRow
         if self.specSelectModel.selectedIndexes():
             selectedSpecRow = self.specSelectModel.selectedIndexes()[0].row()
+            self.specSelectModel.blockSignals(True)
             self.specItemModel.removeRow(selectedSpecRow)
+            self.specSelectModel.blockSignals(False)
             # clean up plots
             self.rawSpectra.clearAll()
             self.resultSpectra.clearAll()
+            self.infoBox.setText('')
 
     def batchProcess(self):
         # get current map idx
@@ -487,12 +490,12 @@ class NormalizationWidget(QSplitter):
                 csvList.append(csvName)
                 h5List.append(h5Name)
 
-            allcsvName = (' + ').join(csvList)
+            allcsvName = (', ').join(csvList)
             if h5Name is None:
-                MsgBox(f'Processed data was saved as csv file at: \n{dirName + allcsvName}')
+                MsgBox(f'Processed data was saved as csv files at: \n{dirName + allcsvName}')
             else:
-                allh5Name = (' + ').join(h5List)
-                MsgBox( f'Processed data was saved as: \n\ncsv file at: {dirName + allcsvName} and \n\nHDF5 file at: {dirName + allh5Name}')
+                allh5Name = (', ').join(h5List)
+                MsgBox( f'Processed data was saved as: \n\ncsv files at: {dirName + allcsvName} and \n\nHDF5 files at: {dirName + allh5Name}')
 
         self.isBatchProcessOn = False # batch process completed
 
