@@ -18,9 +18,9 @@ from lbl_ir.io_tools.read_XAS import read_xasH5
 class xasSpectraWidget(SpectraPlotWidget):
     def __init__(self):
         super(xasSpectraWidget, self).__init__()
-        self.line.setValue(7000)
+        self.line.setValue(8800)
         self.txt = TextItem('', anchor=(0, 0))
-        self.cross = PlotDataItem([7000], [0], symbolBrush=(255, 255, 0), symbolPen=(255, 255, 0),
+        self.cross = PlotDataItem([8800], [0], symbolBrush=(255, 255, 0), symbolPen=(255, 255, 0),
                                   symbol='+',symbolSize=20)
         self.getViewBox().invertX(False)
         self.line.sigPositionChanged.connect(self.getMu)
