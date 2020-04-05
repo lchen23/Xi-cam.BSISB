@@ -57,7 +57,7 @@ class FactorizationParameters(ParameterTree):
                                               'value': 4,
                                               'type': 'list'},
                                              {'name': "Wavenumber ROI",
-                                              'value': '800,1800',
+                                              'value': '8900,9200',
                                               'type': 'str'},
                                              {'name': "Normalization",
                                               'values': ['L2', 'L1', 'None'],
@@ -288,7 +288,7 @@ class FactorizationParameters(ParameterTree):
                      label=labels[i])
         loadings_legend = plt.legend(loc='best')
         plt.setp(loadings_legend, draggable=True)
-        plt.xlim([max(self.wavenumbers_select), min(self.wavenumbers_select)])
+        plt.xlim([min(self.wavenumbers_select), max(self.wavenumbers_select)])
 
         groupLabel = np.zeros((self.dataRowSplit[-1], 1))
         for i in range(len(self.dataRowSplit) - 1):
@@ -325,13 +325,13 @@ class FactorizationParameters(ParameterTree):
 class ComponentPlotWidget(PlotWidget):
     def __init__(self, *args, **kwargs):
         super(ComponentPlotWidget, self).__init__(*args, **kwargs)
-        self.line = InfiniteLine(pos=800, movable=True)
+        self.line = InfiniteLine(pos=8800, movable=True)
         self.line.sigPositionChanged.connect(self.getEnergy)
         self.addItem(self.line)
-        self.cross = PlotDataItem([800], [0], symbolBrush=(255, 255, 255), symbolPen=(255, 255, 255), symbol='+', symbolSize=20)
+        self.cross = PlotDataItem([8800], [0], symbolBrush=(255, 255, 255), symbolPen=(255, 255, 255), symbol='+', symbolSize=25)
         self.addItem(self.cross)
         self.txt = TextItem()
-        self.getViewBox().invertX(True)
+        # self.getViewBox().invertX(True)
         self._x, self._y = None, None
         self.ymax, self.zmax = 0, 100
 
@@ -365,7 +365,7 @@ class ComponentPlotWidget(PlotWidget):
         if ymax > self.ymax:
             self.ymax = ymax
         self._x, self._y = x, y
-        self.txt.setPos(1200, 0.95 * self.ymax)
+        self.txt.setPos(x[0], 0.95 * self.ymax)
         self.addItem(self.txt)
         return plot_item
 

@@ -15,6 +15,7 @@ from xicam.BSISB.widgets.xasimagewidget import xasImageView
 from xicam.BSISB.widgets.mapviewwidget import MapViewWidget
 from xicam.BSISB.widgets.xasimagewidget import xasSpectraWidget
 from xicam.BSISB.widgets.xasnormalwidget import NormalizationWidget
+from xicam.BSISB.widgets.factorizationwidget import FactorizationWidget
 from xicam.plugins import GUIPlugin, GUILayout
 from xicam.gui.widgets.tabview import TabView
 
@@ -297,13 +298,16 @@ class BSISB(GUIPlugin):
 
         self.normalization = NormalizationWidget(self.headermodel, self.selectionmodel)
 
+        self.PCAwidget = FactorizationWidget(self.headermodel, self.selectionmodel)
+
         # Setup tabviews and update map selection
         self.imageview = TabView(self.headermodel, self.selectionmodel, MapView, 'image')
         self.imageview.currentChanged.connect(self.updateTab)
 
         self.stages = {#'Xas View': GUILayout(self.xas),
                        "ROI View": GUILayout(self.imageview),
-                       "Normalization": GUILayout(self.normalization)
+                       "Normalization": GUILayout(self.normalization),
+                       "PCA": GUILayout(self.PCAwidget)
                        }
         super(BSISB, self).__init__(*args, **kwargs)
 
@@ -337,6 +341,9 @@ class BSISB(GUIPlugin):
         # pass 'rc2ind' mapping to normalization widget
         self.normalization.setHeader(field='spectra')
 
+        self.PCAwidget.setHeader(field='spectra')
+        for i in range(4):
+            self.PCAwidget.roiList[i].sigRegionChangeFinished.connect(self.updateROI)
 
     def appendSelection(self, sigCase, sigContent):
         # get current widget and append selectedPixels to item
@@ -345,13 +352,13 @@ class BSISB(GUIPlugin):
             self.headermodel.item(currentItemIdx).selectedPixels = sigContent
         elif sigCase == 'ROI':
             self.headermodel.item(currentItemIdx).roiState = sigContent
-            # self.FA_widget.updateRoiMask()
+            self.PCAwidget.updateRoiMask()
         elif sigCase == 'autoMask':
             self.headermodel.item(currentItemIdx).maskState = sigContent
-            # self.FA_widget.updateRoiMask()
+            self.PCAwidget.updateRoiMask()
         elif sigCase == 'select':
             self.headermodel.item(currentItemIdx).selectState = sigContent
-            # self.FA_widget.updateRoiMask()
+            self.PCAwidget.updateRoiMask()
 
     def updateROI(self, roi):
         if self.selectionmodel.hasSelection():
