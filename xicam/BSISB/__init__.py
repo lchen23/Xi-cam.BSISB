@@ -305,7 +305,7 @@ class BSISB(GUIPlugin):
         self.imageview.currentChanged.connect(self.updateTab)
 
         self.stages = {#'Xas View': GUILayout(self.xas),
-                       "ROI View": GUILayout(self.imageview),
+                       "Image View": GUILayout(self.imageview),
                        "Normalization": GUILayout(self.normalization),
                        "PCA": GUILayout(self.PCAwidget)
                        }
