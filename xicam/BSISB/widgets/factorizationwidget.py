@@ -1,6 +1,5 @@
 from qtpy.QtWidgets import QSplitter, QGridLayout, QWidget, QListView
 from xicam.core import msg
-from xicam.gui.widgets.imageviewmixins import BetterButtons
 from pyqtgraph import PlotWidget, PlotDataItem, TextItem, mkPen, InfiniteLine, ImageItem, PolyLineROI
 from qtpy.QtCore import Qt, QItemSelectionModel
 from qtpy.QtGui import QStandardItemModel
@@ -13,6 +12,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from xicam.BSISB.widgets.mapviewwidget import SlimImageView
 from xicam.BSISB.widgets.uiwidget import MsgBox
 from lbl_ir.data_objects.ir_map import val2ind
 from lbl_ir.tasks.preprocessing import data_prep
@@ -391,10 +391,10 @@ class FactorizationWidget(QSplitter):
         self._colors = ['r', 'g', 'm', 'y', 'c', 'b', 'w']  # color for plots
 
         # self.spectraROI = PlotWidget()
-        self.NWimage = BetterButtons()
-        self.NEimage = BetterButtons()
-        self.SWimage = BetterButtons()
-        self.SEimage = BetterButtons()
+        self.NWimage = SlimImageView()
+        self.NEimage = SlimImageView()
+        self.SWimage = SlimImageView()
+        self.SEimage = SlimImageView()
         # setup ROI item
         sideLen = 10
         self.roiList = []

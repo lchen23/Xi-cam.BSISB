@@ -466,11 +466,11 @@ class NormalizationWidget(QSplitter):
 
         # result collection completed. convert paramsDict to df
         dfDict = {}
-        dfDict['param'] = pd.DataFrame(self.paramsDict)
+        dfDict['param'] = pd.DataFrame(self.paramsDict).set_index('specID')
         for item in self.arrayList:
-            # convert resultSetsDict to df and concatenate
-            dfDict[item] = pd.DataFrame(self.resultSetsDict[item], columns=energy.tolist())
-            dfDict[item] = pd.concat([dfDict['param'], dfDict[item]], axis=1)
+            # convert resultSetsDict to df
+            dfDict[item] = pd.DataFrame(self.resultSetsDict[item], columns=energy.tolist(),
+                                        index=self.paramsDict['specID']).rename_axis('specID', axis=0)
 
         #  save df to files
         msg.showMessage(f'Batch processing is completed! Saving results to csv files.')
@@ -497,7 +497,11 @@ class NormalizationWidget(QSplitter):
                 allh5Name = (', ').join(h5List)
                 MsgBox( f'Processed data was saved as: \n\ncsv files at: {dirName + allcsvName} and \n\nHDF5 files at: {dirName + allh5Name}')
 
-        self.isBatchProcessOn = False # batch process completed
+        # save parameter
+        xlsName = csvName[:-4] + '_param.xlsx'
+        dfDict['param'].to_excel(dirName + xlsName)
+        # batch process completed
+        self.isBatchProcessOn = False
 
     def saveToFiles(self, dfDict, filePath, saveDataType):
 
